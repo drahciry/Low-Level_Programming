@@ -2,9 +2,11 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#define MSG_1 "Tree is empty!"
+
 typedef enum {
-    RED,
-    BLACK
+    BLACK,
+    RED
 } NodeColor;
 
 typedef struct Node {
@@ -25,21 +27,23 @@ bool empty(RBTree* tree) {
     return (tree == NULL || tree->root == tree->NIL);
 }
 
-Node* create_nil() {
-    Node* NIL = (Node*)malloc(sizeof(Node));
-    if (NIL) {
-        NIL->data = 0;
-        NIL->color = BLACK;
-    }
-    return NIL;
+Node* createNIL() {
+    Node* nil = (Node*)malloc(sizeof(Node));
+    if (nil == NULL) return NULL;
+    
+    nil->color = BLACK;
+    nil->data = 0;
+    nil->left = nil;
+    nil->right = nil;
+    nil->parent = nil;
+
+    return nil;
 }
 
-Node* create_node(RBTree* tree, int value) {
-    if (tree == NULL) return NULL;
-
+Node* createNode(RBTree* tree, int value) {
     Node* new_node = (Node*)malloc(sizeof(Node));
-    if (new_node == NULL) return tree->NIL;
-
+    if (new_node == NULL) return NULL;
+    
     new_node->data = value;
     new_node->count = 1;
     new_node->color = RED;
@@ -88,7 +92,7 @@ void left_rotate(RBTree* tree, Node* x) {
     x->parent = y;
 }
 
-void insert_fixup(RBTree* tree, Node* z) {
+void insertFixup(RBTree* tree, Node* z) {
     while (z->parent->color == RED) {
         if (z->parent == z->parent->parent->left) {
             Node* uncle = z->parent->parent->right;
@@ -138,13 +142,11 @@ void insert_fixup(RBTree* tree, Node* z) {
     tree->root->color = BLACK;
 }
 
-void insert_rbt(RBTree* tree, int value) {
-    if (tree == NULL) return;
-
+void treeInsert(RBTree* tree, int value) {
     Node* current = tree->root;
     Node* parent = tree->NIL;
 
-    while (current != NULL && current != tree->NIL && current->data != value) {
+    while (current != tree->NIL && current->data != value) {
         parent = current;
         if (value < current->data)
             current = current->left;
@@ -152,13 +154,13 @@ void insert_rbt(RBTree* tree, int value) {
             current = current->right;
     }
 
-    if (current != NULL && current != tree->NIL) {
+    if (current != tree->NIL) {
         current->count++;
         return;
     }
 
-    Node* z = create_node(tree, value);
-    if (z == tree->NIL) return;
+    Node* z = createNode(tree, value);
+    if (z == NULL) return;
 
     z->parent = parent;
     if (parent == tree->NIL)
@@ -168,15 +170,13 @@ void insert_rbt(RBTree* tree, int value) {
     else
         parent->right = z;
 
-    insert_fixup(tree, z);
+    insertFixup(tree, z);
 }
 
-Node* search_node(RBTree* tree, int value) {
-    if (empty(tree)) return tree->NIL;
-
+Node* nodeSearch(RBTree* tree, int value) {
     Node* current = tree->root;
 
-    while (current != NULL && current != tree->NIL && current->data != value)
+    while (current != tree->NIL && current->data != value)
         if (value < current->data)
             current = current->left;
         else
@@ -185,14 +185,7 @@ Node* search_node(RBTree* tree, int value) {
     return current;
 }
 
-Node* get_predecessor(RBTree* tree, Node* node) {
-    Node* current = node;
-    while (current->right != NULL && current->right != tree->NIL)
-        current = current->right;
-    return current;
-}
-
-void transplant_rbt(RBTree* tree, Node* u, Node* v) {
+void treeTransplant(RBTree* tree, Node* u, Node* v) {
     if (u->parent == tree->NIL)
         tree->root = v;
     else if (u == u->parent->left)
@@ -203,9 +196,15 @@ void transplant_rbt(RBTree* tree, Node* u, Node* v) {
     v->parent = u->parent;
 }
 
-void remove_fixup(RBTree* tree, Node* x) {
-    Node* bro;
+Node* getSucessor(RBTree* tree, Node* node) {
+    Node* current = node;
+    while (current->left != tree->NIL)
+        current = current->left;
+    return current;
+}
 
+void removeFixup(RBTree* tree, Node* x) {
+    Node* bro;
     while (x != tree->root && x->color == BLACK) {
         if (x == x->parent->left) {
             bro = x->parent->right;
@@ -234,6 +233,7 @@ void remove_fixup(RBTree* tree, Node* x) {
                 x->parent->color = BLACK;
                 bro->right->color = BLACK;
                 left_rotate(tree, x->parent);
+
                 x = tree->root;
             }
         }
@@ -265,6 +265,7 @@ void remove_fixup(RBTree* tree, Node* x) {
                 x->parent->color = BLACK;
                 bro->left->color = BLACK;
                 right_rotate(tree, x->parent);
+
                 x = tree->root;
             }
         }
@@ -273,125 +274,124 @@ void remove_fixup(RBTree* tree, Node* x) {
     x->color = BLACK;
 }
 
-void remove_rbt(RBTree* tree, Node* z) {
+void treeRemove(RBTree* tree, Node* z) {
     Node* y = z;
     Node* x;
     NodeColor y_original_color = y->color;
 
     if (z->left == tree->NIL) {
         x = z->right;
-        transplant_rbt(tree, z, x);
+        treeTransplant(tree, z, x);
     } else if (z->right == tree->NIL) {
         x = z->left;
-        transplant_rbt(tree, z, x);
+        treeTransplant(tree, z, x);
     } else {
-        y = get_predecessor(tree, z->left);
+        y = getSucessor(tree, z->right);
         y_original_color = y->color;
-        x = y->left;
+        x = y->right;
 
         if (y->parent == z) {
             x->parent = y;
         } else {
-            transplant_rbt(tree, y, x);
-            y->left = z->left;
-            y->left->parent = y;
+            treeTransplant(tree, y, x);
+            y->right = z->right;
+            y->right->parent = y;
         }
 
-        transplant_rbt(tree, z, y);
-        y->right = z->right;
-        y->right->parent = y;
+        treeTransplant(tree, z, y);
+        y->left = z->left;
+        y->left->parent = y;
         y->color = z->color;
     }
 
     free(z);
 
     if (y_original_color == BLACK)
-        remove_fixup(tree, x);
+        removeFixup(tree, x);
 }
 
-void remove_value(RBTree* tree, int value) {
-    if (empty(tree)) return;
+bool removeValue(RBTree* tree, int value) {
+    if (empty(tree)) return false;
 
-    Node* target = search_node(tree, value);
-
-    if (target == tree->NIL) return;
-
-    if (target->count > 1) {
+    Node* target = nodeSearch(tree, value);
+    
+    if (target == tree->NIL)
+        return false;
+    else if (target->count > 1)
         target->count--;
-        return;
-    }
+    else
+        treeRemove(tree, target);
 
-    remove_rbt(tree, target);
+    return true;
 }
 
-void _in_order(RBTree* tree, Node* node) {
-    if (node != NULL && node != tree->NIL) {
-        _in_order(tree, node->left);
+void _inOrder(RBTree* tree, Node* node) {
+    if (node != tree->NIL) {
+        _inOrder(tree, node->left);
         printf("%d ", node->data);
-        _in_order(tree, node->right);
+        _inOrder(tree, node->right);
     }
 }
 
-void in_order(RBTree* tree) {
-    if (empty(tree)) printf("Tree is empty!");
-    else _in_order(tree, tree->root);
+void inOrder(RBTree* tree) {
+    if (!empty(tree)) _inOrder(tree, tree->root);
+    else printf(MSG_1);
     printf("\n");
 }
 
-void _pre_order(RBTree* tree, Node* node) {
-    if (node != NULL && node != tree->NIL) {
+void _preOrder(RBTree* tree, Node* node) {
+    if (node != tree->NIL) {
         printf("%d ", node->data);
-        _pre_order(tree, node->left);
-        _pre_order(tree, node->right);
+        _preOrder(tree, node->left);
+        _preOrder(tree, node->right);
     }
 }
 
-void pre_order(RBTree* tree) {
-    if (empty(tree)) printf("Tree is empty!");
-    else _pre_order(tree, tree->root);
+void preOrder(RBTree* tree) {
+    if (!empty(tree)) _preOrder(tree, tree->root);
+    else printf(MSG_1);
     printf("\n");
 }
 
-void _post_order(RBTree* tree, Node* node) {
-    if (node != NULL && node != tree->NIL) {
-        _post_order(tree, node->left);
-        _post_order(tree, node->right);
+void _postOrder(RBTree* tree, Node* node) {
+    if (node != tree->NIL) {
+        _postOrder(tree, node->left);
+        _postOrder(tree, node->right);
         printf("%d ", node->data);
     }
 }
 
-void post_order(RBTree* tree) {
-    if (empty(tree)) printf("Tree is empty!");
-    else _post_order(tree, tree->root);
+void postOrder(RBTree* tree) {
+    if (!empty(tree)) _postOrder(tree, tree->root);
+    else printf(MSG_1);
     printf("\n");
 }
 
-RBTree* create_rbt() {
+RBTree* createTree() {
     RBTree* tree = (RBTree*)malloc(sizeof(RBTree));
     if (tree == NULL) return NULL;
 
-    tree->NIL = create_nil();
+    tree->NIL = createNIL();
     if (tree->NIL == NULL) {
         free(tree);
         return NULL;
     }
-
     tree->root = tree->NIL;
 
     return tree;
 }
 
-void delete_node(RBTree* tree, Node* node) {
-    if (node != NULL && node != tree->NIL) {
-        delete_node(tree, node->left);
-        delete_node(tree, node->right);
+void deleteNode(RBTree* tree, Node* node) {
+    if (node != tree->NIL) {
+        deleteNode(tree, node->left);
+        deleteNode(tree, node->right);
         free(node);
     }
 }
 
-void delete_rbt(RBTree* tree) {
+void deleteTree(RBTree* tree) {
     if (tree != NULL) {
-        delete_node(tree, tree->root);
+        deleteNode(tree, tree->root);
         free(tree->NIL);
         free(tree);
     }
